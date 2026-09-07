@@ -45,7 +45,8 @@
        bg1-3 : ciel, lune, montagnes (opaque)          — plein cadre
        bg1-2 : personnage (détouré, livré agrandi)      — échelle 0.588, position (30, 194) en 1672 px
        bg1-1 : roche + pin + feuillage rouge (détouré)  — plein cadre, au premier plan
-     Ordre bas → haut : 3, 2, 1. Position du personnage retrouvée par recalage sur bg1.png. */
+     Ordre bas → haut : ciel, roche, personnage (l'écharpe passe devant la roche). Position du
+     personnage retrouvée par recalage sur bg1.png. */
   .bg {
     position: absolute; left: 50%; top: 50%;
     width: 1920px; height: 1080px;
@@ -55,6 +56,8 @@
   .bg img { position: absolute; display: block; }
   .bg .sky   { left: 0; top: 0; width: 1920px; height: 1080px; }
   .bg .hero-char { left: 34.4px; top: 222.8px; width: 1129.0px; height: auto; }
+  /* Personnage animé (Three.js) : même cadre que bg1-2, avec une marge de 80×40 px pour les mouvements */
+  .bg .hero-wind { position: absolute; display: none; left: -19.6px; top: 195.8px; width: 1237.0px; height: 689.4px; }
   /* Le calque roche livré est plus clair et plus saturé que bg1.png (feuillage rouge trop
      présent). Correction mesurée par recalage sur l'original : -22 % de luminosité, -45 % de
      saturation — améliore feuillage, roche, falaise et pin sans en dégrader aucun.        */
@@ -156,8 +159,9 @@
 <div class="hero" id="hero">
   <div class="bg" aria-hidden="true">
     <img class="sky"       src="bg1-3.png" alt="">
-    <img class="hero-char" src="bg1-2.png" alt="">
     <img class="rock"      src="bg1-1.png" alt="">
+    <img class="hero-char" src="bg1-2.png" alt="">          <!-- version fixe : repli si WebGL indisponible -->
+    <canvas class="hero-wind" id="wind"></canvas>            <!-- version animée : corps + cape + écharpe -->
   </div>
 
   <!-- Calque ancré au bord gauche -->
@@ -208,6 +212,121 @@
     window.addEventListener('resize', fit);
     window.addEventListener('orientationchange', fit);
   })();
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* =====================================================================
+   Vent sur le personnage — boucle de 9 s parfaitement transparente.
+   Trois calques (corps, cape, écharpe) posés sur des maillages plans
+   dont les sommets sont déplacés à chaque image. Aucun éclairage :
+   matériaux non éclairés, les ombres peintes restent identiques.
+   Toutes les pulsations sont des multiples de 2π/T → retour exact à
+   l'image 0 à t = T. Ajouter ?t=2.6 à l'URL fige l'instant t (débogage).
+   ===================================================================== */
+(function () {
+  var FRAME = { w: 1672, h: 941 }, M = { x: 80, y: 40 }, T = 9, TAU = Math.PI * 2;
+  var LAYERS = [   // ordre bas → haut ; box = zone utile dans le PNG ; s, x, y = recalage dans le cadre bg1-2
+    { name: 'body', src: 'bgperso-1.png', box: [801, 17, 1111, 920], s: 0.8375, x: 1078, y: 122, seg: [16, 48] },
+    { name: 'cape', src: 'bgperso-2.png', box: [250, 22, 1449, 924], s: 0.4925, x: 743, y: 270, seg: [48, 48] },
+    { name: 'scarf', src: 'bgperso-3.png', box: [22, 279, 1664, 562], s: 0.6375, x: 65, y: 210, seg: [96, 8] }
+  ];
+  var canvas = document.getElementById('wind'), still = document.querySelector('.hero-char');
+  if (!window.THREE || !canvas) return;
+  var renderer;
+  try { renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true }); } catch (e) { return; }
+  renderer.setPixelRatio(1);
+  renderer.setSize(FRAME.w + 2 * M.x, FRAME.h + 2 * M.y, false);
+  renderer.setClearColor(0x000000, 0);
+  var scene = new THREE.Scene();
+  // Repère : x = pixels du cadre bg1-2, y monde = -y image (l'axe y de Three pointe vers le haut)
+  var camera = new THREE.OrthographicCamera(-M.x, FRAME.w + M.x, M.y, -(FRAME.h + M.y), -10, 10);
+  camera.position.z = 5;
+
+  var meshes = {}, pending = LAYERS.length, loader = new THREE.TextureLoader();
+  LAYERS.forEach(function (L, i) {
+    loader.load(L.src, function (tex) {
+      tex.minFilter = tex.magFilter = THREE.LinearFilter; tex.generateMipmaps = false;
+      var bw = L.box[2] - L.box[0], bh = L.box[3] - L.box[1], w = bw * L.s, h = bh * L.s;
+      var geo = new THREE.PlaneGeometry(w, h, L.seg[0], L.seg[1]);
+      var uv = geo.attributes.uv;                       // UV restreints à la zone utile du PNG
+      for (var k = 0; k < uv.count; k++) {
+        var u = uv.getX(k), v = uv.getY(k);
+        uv.setXY(k, (L.box[0] + u * bw) / FRAME.w, 1 - (L.box[1] + (1 - v) * bh) / FRAME.h);
+      }
+      var mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false }));
+      mesh.position.set(L.x + w / 2, -(L.y + h / 2), 0);
+      mesh.renderOrder = i;
+      mesh.userData = { orig: geo.attributes.position.array.slice(), w: w, h: h };
+      scene.add(mesh); meshes[L.name] = mesh;
+      if (--pending === 0) start();
+    });
+  });
+
+  function w(n) { return TAU * n / T; }                                   // pulsation périodique sur T
+  function bump(t, c, hw) { var d = Math.abs(t - c); return d < hw ? .5 * (1 + Math.cos(Math.PI * d / hw)) : 0; }
+  // d = [dx, dy] en pixels du cadre, dy > 0 = vers le bas ; u : 0 gauche → 1 droite ; v : 0 haut → 1 bas
+  function deform(mesh, fn) {
+    var pos = mesh.geometry.attributes.position, o = mesh.userData.orig, W = mesh.userData.w, H = mesh.userData.h;
+    for (var k = 0; k < pos.count; k++) {
+      var x = o[3 * k], y = o[3 * k + 1];
+      var u = Math.min(1, Math.max(0, (x + W / 2) / W)), v = Math.min(1, Math.max(0, (H / 2 - y) / H));  // bornés : pow(x<0, k) = NaN
+      var d = fn(u, v);
+      pos.setXY(k, x + d[0], y - d[1]);
+    }
+    pos.needsUpdate = true;
+  }
+
+  var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var q = new URLSearchParams(location.search), frozen = q.has('t') ? parseFloat(q.get('t')) : null;
+  var boost = 0, lastX = null;                                            // le vent réagit un peu à la souris
+  addEventListener('mousemove', function (e) { if (lastX !== null) boost = Math.min(.5, boost + Math.abs(e.clientX - lastX) / 900); lastX = e.clientX; });
+
+  function frame(now) {
+    var t = frozen !== null ? frozen : (now / 1000) % T;
+    boost *= .965;
+    /* Chronologie (T = 9 s) : 0 s calme → 1–3 s rafale sur l'écharpe → 2–5 s la cape suit (retard ~450 ms)
+       → 5–7 s retombée → 7–9 s résiduel → 9 s = image 0.                                                  */
+    var gS = bump(t, 2.6, 2.4), gC = bump(t, 3.1, 2.8), calm = bump(t, 4.5, 4.5);
+    var aS = (.12 + .15 * calm + .73 * gS) * (1 + .6 * boost);          // amplitude écharpe
+    var aC = (.15 + .15 * calm + .70 * gC) * (1 + .4 * boost);          // amplitude cape
+    var tc = t - .45;                                                   // retard de la cape (tissu lourd)
+
+    // Écharpe : attache au cou (u = 1) fixe, influence = (1-u)^1.8 ; 2–3 vagues le long du tissu, légère torsion,
+    // vibration fine à l'extrémité. Vent de droite à gauche : phase croissante vers la gauche.
+    deform(meshes.scarf, function (u, v) {
+      // phases en -k·d : les vagues voyagent du cou (d = 0) vers l'extrémité (d = 1), emportées par le vent
+      var d = 1 - u, inf = Math.pow(d, 1.8), ph = -TAU * 2.2 * d;
+      var dy = Math.sin(w(2) * t + ph) * 32
+             + Math.sin(w(3) * t - TAU * 3.4 * d + 1.3) * 10
+             + (v - .5) * Math.sin(w(3) * t - TAU * 3 * d) * 8            // torsion : bords opposés
+             + Math.sin(w(6) * t - TAU * 5 * d) * 2 * Math.pow(d, 4);      // vibration du bout
+      var dx = Math.sin(w(2) * t + ph + .7) * 6;
+      return [dx * aS * inf, dy * aS * inf];
+    });
+    // Cape : épaules fixes (v = 0), pans inférieurs et côté gauche plus mobiles, oscillation lente et
+    // irrégulière, soulèvement pendant la rafale, petits pans déchirés qui vibrent (v^3).
+    deform(meshes.cape, function (u, v) {
+      var inf = Math.pow(v, 1.7) * (.55 + .45 * (1 - u));
+      var dy = Math.sin(w(1) * tc - TAU * 1.1 * (1 - u)) * 7
+             + Math.sin(w(2) * tc + TAU * .8 * v + 2) * 4
+             - 9 * gC
+             + Math.sin(w(5) * t + TAU * 4 * u) * 3 * Math.pow(v, 3);
+      var dx = -(5 + 4 * Math.sin(w(1) * tc - TAU * 1.1 * (1 - u) + .6)) * gC;
+      return [dx * aC * inf, dy * aC * inf];
+    });
+    // Corps : respiration de 1,5 px (pieds fixes) ; quelques mèches de cheveux (12 % supérieurs) vibrent de 1 px.
+    deform(meshes.body, function (u, v) {
+      var breath = Math.sin(w(2) * t) * 1.5 * Math.pow(1 - v, 1.5);
+      var hair = v < .12 ? Math.sin(w(7) * t + 10 * u) * 1.2 * (1 - v / .12) : 0;
+      return [hair, -breath];
+    });
+    renderer.render(scene, camera);
+    if (!reduced && frozen === null) requestAnimationFrame(frame);
+  }
+  function start() { still.style.display = 'none'; canvas.style.display = 'block'; requestAnimationFrame(frame); }
+  window.__wind = { scene: scene, meshes: meshes, renderer: renderer, camera: camera };   // inspection depuis la console
+})();
 </script>
 </body>
 </html>
