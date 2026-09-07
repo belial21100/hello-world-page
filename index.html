@@ -18,13 +18,15 @@
      Couches du fond (bas → haut), toutes animables séparément :
        sky        bg1-3            ciel + lune + montagnes (opaque)
        far        clouds-far.webp  nuages lointains  (dérivés de bg1-3, sans la lune)  +5 px / 35 s
-       moon       bg1-3 masquée    lune vivante : respiration 100 → 103 % sur 11 s, halo
+       moon       bf01.webp        lune peinte : respiration 100 → 103 % sur 11 s, halo
+       mtn        bf02.webp        montagnes + tours + pagodes (calque séparé, parallaxe faible)
        mid        clouds-mid.webp  nuages intermédiaires                              −8 px / 26 s
-       near       clouds-near.webp nuages proches                                     +14 px / 20 s
+       near       clouds-near.webp nuages proches dérivés                             +14 px / 20 s
+       fgc        bf03.webp        nuages proches peints (55 %)                       +14 px / 20 s
        haze.in    brume d'ouverture (les montagnes en émergent)
        rock       bg1-1            falaise + pin + végétation
        char       bgperso-1/2/3    personnage (Three.js, vent)
-       mist       clouds-near ×1.3 brume de transition qui monte
+       mist       bf03 ×1.3        brume de transition qui monte
        haze.out   ivoire           fond uniforme → scène 2
      Polices : Cormorant Garamond (logo, nav, paragraphe, liens, CRÉER…),
                Montserrat (petites capitales), Noto Serif JP (japonais).
@@ -72,14 +74,21 @@
 
   /* lune vivante : disque masqué de bg1-3 qui respire (100 → 103 % / 11 s) + texture qui glisse de 2 px, halo en screen */
   .moon-w { transform-origin: var(--cx) var(--cy); }
-  .bg .moon { -webkit-mask-image: radial-gradient(circle 320px at 1162px 228px, #000 80%, transparent 100%);
-                      mask-image: radial-gradient(circle 320px at 1162px 228px, #000 80%, transparent 100%);
-              transform-origin: 1162px 228px; animation: moonBreath 11s ease-in-out infinite alternate; }
+  /* cadres 1920×1080 pour les calques peints (lune, montagnes) — suivent le ciel sur mobile */
+  .frame { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
+  /* lune peinte (bf01) : même centre et même diamètre que le disque de bg1-3 (échelle .436) */
+  .bg .moon { left: 834.8px; top: -95.3px; width: 627.8px; height: 627.8px; transform-origin: 50% 50%; animation: moonBreath 11s ease-in-out infinite alternate;
+              opacity: .86; filter: brightness(.93); }   /* tempérée : la maquette voile la lune de nuages */
+  /* montagnes + tours + pagodes (bf02) : échelle .605, coin (887,176) en 1672 px */
+  .bg .mtn { left: 1018.6px; top: 202.1px; width: 779.5px; height: auto; }
+  /* nuages proches peints (bf03) : au repos à 55 %, dérive +14 px / 20 s ; servent aussi de brume de transition */
+  .fgc { opacity: .45; animation: driftNear 20s ease-in-out infinite alternate; }
   @keyframes moonBreath { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.03) translate(2px, 1px); } }
   .glow { position: absolute; inset: 0; mix-blend-mode: screen; animation: glowBreath 11s ease-in-out infinite alternate;
           background: radial-gradient(circle at var(--cx) var(--cy), rgba(255,246,230,.40) 0, rgba(255,246,230,.14) 20%, rgba(255,246,230,0) 46%); }
   @keyframes glowBreath { from { opacity: .7; } to { opacity: 1; } }
   .glow-w { opacity: 0; }
+  .glow-w.on { opacity: .5; }
 
   /* brumes */
   .haze { position: absolute; inset: 0; background: var(--mist); opacity: 0; pointer-events: none; }
@@ -172,9 +181,8 @@
     .bg { width: 430px; height: 932px; }
     .cam { transform-origin: 50% 40%; }
     .bg .skyish { left: -1191px; top: -6px; width: 1657px; height: 944px; }       /* fenêtre prise à droite de la lune */
-    .bg .moon { left: -406px; top: 117px; width: 1152px; height: 648px; transform-origin: 60% 22%;
-      -webkit-mask-image: radial-gradient(ellipse 34% 40% at 60% 22%, #000 45%, transparent 100%);
-              mask-image: radial-gradient(ellipse 34% 40% at 60% 22%, #000 45%, transparent 100%); }
+    .bg .moon { left: 147px; top: 124px; width: 275px; height: 275px; }              /* centre (284, 261), disque ≈ 241 px */
+    .bg .frame.mtn-f { transform: translate(-1191px, -6px) scale(.863); }               /* même fenêtre que le ciel */
     .glow { background: radial-gradient(circle at var(--cx) var(--cy), rgba(255,246,230,.40) 0, rgba(255,246,230,.14) 90px, rgba(255,246,230,0) 210px); }
     .bg .mist { left: -1300px; top: -120px; width: 1900px; height: 1070px; }
     .scrim { display: block; position: absolute; left: 0; top: 0; width: 430px; height: 420px; pointer-events: none;
@@ -220,10 +228,12 @@
     <div class="cam" id="cam">
       <div class="layer sky-w"  id="skyW"><img class="skyish sky" src="bg1-3.png" alt=""></div>
       <div class="layer far-w"  id="farW"><img class="skyish clouds far" src="clouds-far.webp" alt=""></div>
-      <div class="layer moon-w" id="moonW"><img class="skyish moon" src="bg1-3.png" alt=""></div>
+      <div class="layer moon-w" id="moonW"><div class="frame moon-f"><img class="moon" src="bf01.webp" alt=""></div></div>
       <div class="layer glow-w" id="glowW"><div class="glow"></div></div>
+      <div class="layer mtn-w"  id="mtnW"><div class="frame mtn-f"><img class="mtn" src="bf02.webp" alt=""></div></div>
       <div class="layer mid-w"  id="midW"><img class="skyish clouds mid" src="clouds-mid.webp" alt=""></div>
       <div class="layer near-w" id="nearW"><img class="skyish clouds near" src="clouds-near.webp" alt=""></div>
+      <div class="layer fgc-w"  id="fgcW"><img class="skyish clouds fgc" src="bf03.webp" alt=""></div>
       <div class="haze in" id="hazeIn"></div>
       <div class="fg">
         <div class="layer rock-w" id="rockW"><img class="rock" src="bg1-1.png" alt=""></div>
@@ -232,7 +242,7 @@
           <canvas class="hero-wind" id="wind"></canvas>          <!-- version animée : corps + cape + écharpe -->
         </div>
       </div>
-      <div class="layer mist-w" id="mistW"><img class="mist" src="clouds-near.webp" alt=""></div>
+      <div class="layer mist-w" id="mistW"><img class="mist" src="bf03.webp" alt=""></div>
       <div class="haze out" id="hazeOut"></div>
     </div>
     <div class="scrim"></div>
@@ -347,7 +357,7 @@
   var rv = $$('.rv');                                         // autres éléments UI révélés par masque haut → bas
 
   // --- éléments animés ---
-  var E = { cam: $('#cam'), sky: $('#skyW'), far: $('#farW'), moon: $('#moonW'), glow: $('#glowW'), mid: $('#midW'), near: $('#nearW'),
+  var E = { cam: $('#cam'), sky: $('#skyW'), far: $('#farW'), moon: $('#moonW'), glow: $('#glowW'), mtn: $('#mtnW'), mid: $('#midW'), near: $('#nearW'), fgc: $('#fgcW'),
             hazeIn: $('#hazeIn'), rock: $('#rockW'), chr: $('#charW'), mist: $('#mistW'), hazeOut: $('#hazeOut'), veil: $('#veil'),
             lineD: $('#lineD'), lineM: $('#lineM'), gLogo: $('#gLogo'), gNav: $('#gNav'), gScroll: $('#gScroll'), gBl: $('#gBl'), gJp: $('#gJp'), gBr: $('#gBr'),
             logo: $('#logo'), scrollLine: $('#scrollLine'), jpTick: $('#jpTick') };
@@ -403,8 +413,10 @@
     tf(E.far,  mx * 4 + par * 8 * u,                        my * 2);
     tf(E.moon, -mx * 3.5,                                   -my * 2, 1 + .08 * moon);
     tf(E.glow, -mx * 3.5,                                   -my * 2, 1 + .12 * moon);
+    tf(E.mtn,  mx * 3 + par * 3 * u,                        my * 1.5);                           // montagnes : presque fixes, tours comprises
     tf(E.mid,  mx * 8 * (1 + .5 * depth) - par * 16 * u,   my * 4);
     tf(E.near, mx * 12 * (1 + .6 * depth) + par * 30 * u,  my * 6);
+    tf(E.fgc,  mx * 14 * (1 + .6 * depth) + par * 34 * u,  my * 7);                        // nuages proches peints : les plus mobiles
     tf(E.rock, mx * 22 - cliff * 140, my * 12 + cliff * 10, 1 + .04 * cliff);      // repère 1920 (dans .fg)
     tf(E.chr,  mx * 15 - cliff * 140, my * 8  + cliff * 10);
     E.mist.style.opacity = mist; tf(E.mist, mx * 10, my * 5 + (1 - mist) * 260 * u);
@@ -432,7 +444,7 @@
     gsap.set(stages, { visibility: 'visible' });
     gsap.set(logoCh.concat(logoJpCh, jpCh, creerLines, rv), { clipPath: 'none', opacity: 1 });
     gsap.set(E.veil, { display: 'none' }); gsap.set(E.hazeIn, { opacity: 0 });
-    gsap.set(E.rock, { filter: 'none' }); gsap.set(E.chr, { opacity: 1, filter: 'none' }); gsap.set(E.glow, { opacity: 1 });
+    gsap.set(E.rock, { filter: 'none' }); gsap.set(E.chr, { opacity: 1, filter: 'none' }); gsap.set(E.glow, { opacity: .5 });
     gsap.set(E.jpTick, { scaleY: 1 }); introDone = true;
   }
   if (noIntro) { finalState(); return; }
@@ -445,7 +457,7 @@
   gsap.set(E.jpTick, { scaleY: 0 });
   var tl = gsap.timeline({ defaults: { ease: 'power2.out' }, onComplete: function () { introDone = true; E.veil.style.display = 'none'; } });
   tl.to(E.veil, { '--r': '1700px', duration: 1.8, ease: 'power1.inOut' }, .3)                       // la lumière de la lune gagne le ciel
-    .to(E.glow, { opacity: 1, duration: 1.4, ease: 'power1.inOut' }, .4)
+    .to(E.glow, { opacity: .5, duration: 1.4, ease: 'power1.inOut' }, .4)
     .to(E.hazeIn, { opacity: 0, duration: 1.6, ease: 'power1.inOut' }, 1.0)                           // les montagnes émergent de la brume
     .to(E.rock, { filter: 'brightness(1)', duration: 1.4, ease: 'power1.inOut' }, 1.5)                // la falaise sort du noir
     .to(E.chr, { opacity: 1, filter: 'brightness(1)', duration: 1.2, ease: 'power1.out' }, 1.9)       // le personnage sort de l'ombre
