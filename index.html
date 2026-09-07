@@ -32,20 +32,26 @@
     --shadow-dark:  0 1px 2px rgba(0,0,0,.10);
   }
   * { box-sizing: border-box; margin: 0; }
-  html, body { background: #0d0c0b; }
-  body { overflow-x: hidden; }
+  html, body { height: 100%; background: #0d0c0b; overflow: hidden; }
 
-  .viewport { width: 100vw; height: calc(100vw * 1080 / 1920); position: relative; overflow: hidden; }
+  /* Le hero occupe exactement la fenêtre : aucun scroll possible.
+     --s = facteur d'échelle (posé en JS) = min(largeur/1920, hauteur/1080).
+     Deux calques 1920×1080 partagent ce facteur : l'un ancré au bord gauche,
+     l'autre au bord droit, centrés verticalement. À 1920×1080 ils coïncident
+     exactement avec la maquette ; sur un autre ratio la composition reste
+     collée aux bords sans jamais déborder.                                   */
+  .hero { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; overflow: hidden; --s: 1; }
+  .bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
   .stage {
-    position: absolute; top: 0; left: 0;
+    position: absolute; top: 50%;
     width: 1920px; height: 1080px;
-    transform-origin: top left;
-    transform: scale(calc(100vw / 1920));
     color: var(--ivory);
     -webkit-font-smoothing: antialiased;
+    pointer-events: none;
   }
-  .bg { position: absolute; inset: 0; width: 1920px; height: 1080px; object-fit: cover; display: block; }
-  .stage > * { position: absolute; }
+  .stage > * { position: absolute; pointer-events: auto; }
+  .stage.left  { left: 0;  transform-origin: left center;  transform: translateY(-50%) scale(var(--s)); }
+  .stage.right { right: 0; transform-origin: right center; transform: translateY(-50%) scale(var(--s)); }
 
   /* ---------- Logo + tagline ---------- */
   .logo {
@@ -130,17 +136,13 @@
 </style>
 </head>
 <body>
-<div class="viewport">
-  <div class="stage">
-    <img class="bg" src="bg1.png" alt="">
+<div class="hero" id="hero">
+  <img class="bg" src="bg1.png" alt="">
 
+  <!-- Calque ancré au bord gauche -->
+  <div class="stage left">
     <div class="logo">TSUKIYO</div>
     <div class="tagline">Studio<br>Digital craft<br>For a deeper tomorrow</div>
-
-    <nav class="nav">
-      <a href="#">Studio</a><a href="#">Projects</a><a href="#">Journal</a><a href="#">Contact</a>
-    </nav>
-    <div class="menu" aria-label="Menu"></div>
 
     <div class="scroll-line"></div>
     <svg class="scroll-icon" viewBox="0 0 28 28" fill="none" stroke="#efe7db" stroke-width="1.2">
@@ -149,20 +151,41 @@
     </svg>
     <div class="scroll-label">Scroll</div>
 
-    <div class="jp"><span>まだ見ぬ、</span><span>美しい未来をつくる</span></div>
-    <div class="jp-tick"></div>
-    <div class="creer">Créer<br>un demain<br>plus beau</div>
-
     <div class="rule"></div>
     <p class="intro">Immersive digital experiences<br>shaped by story, craft and atmosphere.</p>
     <a class="cta projects" href="#">View Projects
       <svg viewBox="0 0 38 14" fill="none" stroke="#efe7db" stroke-width="1.2"><path d="M0 7h36M30 1l6 6-6 6"/></svg></a>
     <a class="cta journal" href="#">Enter Journal
       <svg viewBox="0 0 38 14" fill="none" stroke="#efe7db" stroke-width="1.2"><path d="M0 7h36M30 1l6 6-6 6"/></svg></a>
+  </div>
+
+  <!-- Calque ancré au bord droit -->
+  <div class="stage right">
+    <nav class="nav">
+      <a href="#">Studio</a><a href="#">Projects</a><a href="#">Journal</a><a href="#">Contact</a>
+    </nav>
+    <div class="menu" aria-label="Menu"></div>
+
+    <div class="jp"><span>まだ見ぬ、</span><span>美しい未来をつくる</span></div>
+    <div class="jp-tick"></div>
+    <div class="creer">Créer<br>un demain<br>plus beau</div>
 
     <div class="br">Art<br>People<br>A brighter tomorrow</div>
     <div class="br-rule"></div>
   </div>
 </div>
+<script>
+  // Facteur d'échelle : la scène 1920×1080 tient toujours entièrement dans la fenêtre.
+  (function () {
+    var hero = document.getElementById('hero');
+    function fit() {
+      var s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+      hero.style.setProperty('--s', s.toFixed(5));
+    }
+    fit();
+    window.addEventListener('resize', fit);
+    window.addEventListener('orientationchange', fit);
+  })();
+</script>
 </body>
 </html>
