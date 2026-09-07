@@ -4,22 +4,30 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tsukiyo Studio</title>
+<script>document.documentElement.className += ' js';</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Montserrat:wght@400;500&family=Noto+Serif+JP:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Montserrat:wght@400;500;600&family=Noto+Serif+JP:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   /* =====================================================================
-     TSUKIYO STUDIO — bloc 1 (hero)
-     Scène de référence : 1920 × 1080. Toutes les cotes ci-dessous sont
-     exprimées dans ce repère, puis la scène est mise à l'échelle sur la
-     largeur d'écran (ratio 16:9 conservé).
+     TSUKIYO STUDIO — hero cinématographique
+     Scène de référence 1920 × 1080 (mobile : 430 × 932), mise à l'échelle
+     sur la fenêtre. Le hero est épinglé (ScrollTrigger) pendant 180 vh :
+     on voyage dans l'image, la brume envahit l'écran, puis la scène 2.
 
-     Polices
-       Cormorant Garamond : logo, navigation, paragraphe, liens,
-                            « CRÉER UN DEMAIN PLUS BEAU »
-       Montserrat         : petites capitales espacées
-                            (tagline, SCROLL, ART / PEOPLE / …)
-       Noto Serif JP      : accroche japonaise verticale (mincho)
+     Couches du fond (bas → haut), toutes animables séparément :
+       sky        bg1-3            ciel + lune + montagnes (opaque)
+       far        clouds-far.webp  nuages lointains  (dérivés de bg1-3, sans la lune)  +5 px / 35 s
+       moon       bg1-3 masquée    lune vivante : respiration 100 → 103 % sur 11 s, halo
+       mid        clouds-mid.webp  nuages intermédiaires                              −8 px / 26 s
+       near       clouds-near.webp nuages proches                                     +14 px / 20 s
+       haze.in    brume d'ouverture (les montagnes en émergent)
+       rock       bg1-1            falaise + pin + végétation
+       char       bgperso-1/2/3    personnage (Three.js, vent)
+       mist       clouds-near ×1.3 brume de transition qui monte
+       haze.out   ivoire           fond uniforme → scène 2
+     Polices : Cormorant Garamond (logo, nav, paragraphe, liens, CRÉER…),
+               Montserrat (petites capitales), Noto Serif JP (japonais).
      ===================================================================== */
   :root {
     --serif: "Cormorant Garamond", "Cormorant", Garamond, "Times New Roman", serif;
@@ -27,174 +35,158 @@
     --jp:    "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", serif;
     --ivory: #f7f3ec;                 /* texte clair (cœur des lettres ≈ 250 sur la maquette) */
     --ink:   #151311;                 /* texte sombre, quasi noir comme sur la maquette        */
-    /* Mesuré sur la maquette : aucune ombre sombre autour des lettres (à 2–3 px on retrouve le fond),
-       mais un bord lumineux doux de 1–2 px → léger glow clair. Le texte sombre a un bord fondu. */
+    --red:   #b3261e;                 /* rouge de l'écharpe → fil narratif                     */
+    --mist:  #e9e2d6;                 /* ivoire des nuages : brume finale et fond de la scène 2 */
     --shadow-light: 0 0 1.5px rgba(255,248,236,.55), 0 0 4px rgba(255,248,236,.18);
     --shadow-dark:  0 0 1.2px rgba(0,0,0,.45);
   }
   * { box-sizing: border-box; margin: 0; }
-  html, body { height: 100%; background: #0d0c0b; overflow: hidden; }
+  html { background: #0d0c0b; }
+  body { background: #0d0c0b; color: var(--ivory); overflow-x: hidden; }
+  html.lenis, html.lenis body { height: auto; }
+  .lenis.lenis-smooth { scroll-behavior: auto !important; }
 
-  /* Le hero occupe exactement la fenêtre : aucun scroll possible.
-     --s = facteur d'échelle (posé en JS) = min(largeur/1920, hauteur/1080).
-     Deux calques 1920×1080 partagent ce facteur : l'un ancré au bord gauche,
-     l'autre au bord droit, centrés verticalement. À 1920×1080 ils coïncident
-     exactement avec la maquette ; sur un autre ratio la composition reste
-     collée aux bords sans jamais déborder.                                   */
-  .hero { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; overflow: hidden; --s: 1; --sbg: 1; --stage-w: 1920; --stage-h: 1080; }
-  /* Fond en trois calques (repère 1920×1080, mis à l'échelle en "cover" par --sbg) :
-       bg1-3 : ciel, lune, montagnes (opaque)          — plein cadre
-       bg1-2 : personnage (détouré, livré agrandi)      — échelle 0.588, position (30, 194) en 1672 px
-       bg1-1 : roche + pin + feuillage rouge (détouré)  — plein cadre, au premier plan
-     Ordre bas → haut : ciel, roche, personnage (l'écharpe passe devant la roche). Position du
-     personnage retrouvée par recalage sur bg1.png. */
-  .bg {
-    position: absolute; left: 50%; top: 50%;
-    width: 1920px; height: 1080px;
-    transform: translate(-50%, -50%) scale(var(--sbg, 1));
-    transform-origin: center;
-  }
+  /* ---------- HERO ---------- */
+  .hero { position: relative; width: 100vw; height: 100vh; height: 100dvh; overflow: hidden;
+          --s: 1; --sbg: 1; --stage-w: 1920; --stage-h: 1080; --cx: 1148px; --cy: 218px; }
+  .bg { position: absolute; left: 50%; top: 50%; width: 1920px; height: 1080px;
+        transform: translate(-50%, -50%) scale(var(--sbg, 1)); transform-origin: center; }
+  .cam { position: absolute; inset: 0; transform-origin: 52% 45%; }                 /* zoom caméra au scroll */
+  .layer { position: absolute; left: 0; top: 0; width: 100%; height: 100%; will-change: transform; }
   .bg img { position: absolute; display: block; }
+  .skyish { left: -12px; top: -7px; width: 1944px; height: 1094px; }               /* léger débord pour la parallaxe */
   .fg { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
-  .bg .moon, .bg .scrim { display: none; }
-  .bg .sky   { left: 0; top: 0; width: 1920px; height: 1080px; }
+  .rock-w { transform-origin: 0 100%; }
   .bg .hero-char { left: 34.4px; top: 222.8px; width: 1129.0px; height: auto; }
-  /* Personnage animé (Three.js) : même cadre que bg1-2, avec une marge de 80×40 px pour les mouvements */
   .bg .hero-wind { position: absolute; display: none; left: -19.6px; top: 195.8px; width: 1237.0px; height: 689.4px; }
-  /* Le calque roche livré est plus clair et plus saturé que bg1.png (feuillage rouge trop
-     présent). Correction mesurée par recalage sur l'original : -22 % de luminosité, -45 % de
-     saturation — améliore feuillage, roche, falaise et pin sans en dégrader aucun.        */
-  .bg .rock  { left: 0; top: 0; width: 1920px; height: 1080px; filter: brightness(.78) saturate(.55); }
-  .stage {
-    position: absolute; top: 50%;
-    width: 1920px; height: 1080px;
-    color: var(--ivory);
-    -webkit-font-smoothing: antialiased;
-    pointer-events: none;
-  }
-  .stage > * { position: absolute; pointer-events: auto; }
+  .bg .rock { left: 0; top: 0; width: 1920px; height: 1080px; filter: brightness(.78) saturate(.55); }
+
+  /* nuages dérivés : dérive lente, chaque profondeur à sa vitesse (aller-retour) */
+  .clouds { will-change: transform; }
+  .far  { animation: driftFar  35s ease-in-out infinite alternate; }
+  .mid  { animation: driftMid  26s ease-in-out infinite alternate; }
+  .near { animation: driftNear 20s ease-in-out infinite alternate; }
+  @keyframes driftFar  { to { transform: translateX(5px); } }
+  @keyframes driftMid  { to { transform: translateX(-8px); } }
+  @keyframes driftNear { to { transform: translateX(14px); } }
+
+  /* lune vivante : disque masqué de bg1-3 qui respire (100 → 103 % / 11 s) + texture qui glisse de 2 px, halo en screen */
+  .moon-w { transform-origin: var(--cx) var(--cy); }
+  .bg .moon { -webkit-mask-image: radial-gradient(circle 320px at 1162px 228px, #000 80%, transparent 100%);
+                      mask-image: radial-gradient(circle 320px at 1162px 228px, #000 80%, transparent 100%);
+              transform-origin: 1162px 228px; animation: moonBreath 11s ease-in-out infinite alternate; }
+  @keyframes moonBreath { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.03) translate(2px, 1px); } }
+  .glow { position: absolute; inset: 0; mix-blend-mode: screen; animation: glowBreath 11s ease-in-out infinite alternate;
+          background: radial-gradient(circle at var(--cx) var(--cy), rgba(255,246,230,.40) 0, rgba(255,246,230,.14) 20%, rgba(255,246,230,0) 46%); }
+  @keyframes glowBreath { from { opacity: .7; } to { opacity: 1; } }
+  .glow-w { opacity: 0; }
+
+  /* brumes */
+  .haze { position: absolute; inset: 0; background: var(--mist); opacity: 0; pointer-events: none; }
+  .mist-w { opacity: 0; }
+  .bg .mist { left: -300px; top: -60px; width: 2520px; height: 1420px; filter: blur(1.5px); }
+
+  /* voile d'ouverture : noir, percé d'un cercle de lumière qui grandit depuis la lune */
+  .veil { position: absolute; inset: 0; background: #070605; --r: 1px; pointer-events: none;
+          -webkit-mask-image: radial-gradient(circle var(--r) at var(--cx) var(--cy), transparent 0, transparent 55%, #000 100%);
+                  mask-image: radial-gradient(circle var(--r) at var(--cx) var(--cy), transparent 0, transparent 55%, #000 100%); }
+
+  /* fil rouge : l'écharpe se prolonge en ligne graphique vers la scène suivante */
+  .scarf-line { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: visible; pointer-events: none; opacity: 0; }
+  .scarf-line path { fill: none; stroke: var(--red); stroke-width: 2.5; stroke-linecap: round; }
+  .scarf-line.m { display: none; }
+  .scrim { display: none; }
+
+  /* ---------- calques UI (1920 × 1080, ancrés gauche / droite) ---------- */
+  .stage { position: absolute; top: 50%; width: 1920px; height: 1080px; color: var(--ivory);
+           -webkit-font-smoothing: antialiased; pointer-events: none; }
   .stage.left  { left: 0;  transform-origin: left center;  transform: translateY(-50%) scale(var(--s)); }
   .stage.right { right: 0; transform-origin: right center; transform: translateY(-50%) scale(var(--s)); }
+  .grp { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; will-change: transform, opacity; }
+  .grp > * { position: absolute; pointer-events: auto; }
+  html.js .stage { visibility: hidden; }                                              /* révélé par l'ouverture */
+  .ch { display: inline-block; }
 
-  /* ---------- Logo + tagline ---------- */
-  .logo {
-    left: 82px; top: 65px;
-    font: 400 56px/1 var(--serif);
-    letter-spacing: .42em;
-    text-shadow: var(--shadow-light);
-  }
-  /* 月夜 (tsukiyo) à droite du logo — maquette 2 : écart ≈ 41 px, hauteur ≈ 85 % des capitales, même ivoire */
-  .logo-jp {
-    left: 493px; top: 70px;
-    font: 500 40px/1 var(--jp);
-    letter-spacing: .08em;
-    opacity: .92;
-    /* 夜 chevauche le bord du ciel clair : halo sombre discret en plus du glow, pour rester lisible */
-    text-shadow: var(--shadow-light), 0 1px 4px rgba(0,0,0,.55);
-  }
-  .tagline {
-    left: 86px; top: 147px;
-    font: 500 12.4px/25px var(--sans);
-    letter-spacing: .37em;
-    text-transform: uppercase;
-    opacity: .8;                       /* maquette : tagline à ~80 % du blanc du logo */
-    text-shadow: var(--shadow-light);
-  }
+  .logo { left: 82px; top: 65px; font: 400 56px/1 var(--serif); letter-spacing: .42em; text-shadow: var(--shadow-light); white-space: nowrap; }
+  .logo-jp { left: 493px; top: 70px; font: 500 40px/1 var(--jp); letter-spacing: .08em; opacity: .92;
+             text-shadow: var(--shadow-light), 0 1px 4px rgba(0,0,0,.55); }
+  .tagline { left: 86px; top: 147px; font: 500 12.4px/25px var(--sans); letter-spacing: .37em; text-transform: uppercase;
+             opacity: .8; text-shadow: var(--shadow-light); }
 
-  /* ---------- Navigation ---------- */
   .nav { left: 1331px; top: 55px; color: var(--ink); text-shadow: var(--shadow-dark); }
   .nav a { position: absolute; top: 0; font: 700 19.5px/1 var(--serif); color: inherit; text-decoration: none; white-space: nowrap; }
-  .nav a:nth-child(1) { left: 0; }
-  .nav a:nth-child(2) { left: 100px; }
-  .nav a:nth-child(3) { left: 212px; }
-  .nav a:nth-child(4) { left: 341px; }
-  .menu {
-    left: 1807px; top: 43px; width: 48px; height: 48px;
-    border: 1.8px solid var(--ink); border-radius: 50%;
-  }
-  .menu::after {
-    content: ""; position: absolute; left: 13px; right: 13px; top: 50%;
-    height: 1.2px; background: var(--ink);
-  }
+  .nav a:nth-child(1) { left: 0; } .nav a:nth-child(2) { left: 100px; } .nav a:nth-child(3) { left: 212px; } .nav a:nth-child(4) { left: 341px; }
+  .menu { left: 1807px; top: 43px; width: 48px; height: 48px; border: 1.8px solid var(--ink); border-radius: 50%; }
+  .menu::after { content: ""; position: absolute; left: 13px; right: 13px; top: 50%; height: 1.2px; background: var(--ink); }
 
-  /* ---------- Indicateur de scroll ---------- */
-  .scroll-line { left: 83px; top: 515px; width: 1.5px; height: 133px; background: var(--ivory); opacity: .75; }
+  /* indicateur SCROLL : la ligne se remplit du haut vers le bas puis se vide, le cercle tourne très lentement */
+  .scroll-line { left: 83px; top: 515px; width: 1.5px; height: 133px; background: rgba(247,243,236,.28); transform-origin: top; }
+  .scroll-line::after { content: ""; position: absolute; inset: 0; background: var(--ivory); animation: lineFill 3s cubic-bezier(.5,0,.2,1) infinite; }
+  @keyframes lineFill { 0% { clip-path: inset(0 0 100% 0); } 42% { clip-path: inset(0); } 58% { clip-path: inset(0); } 100% { clip-path: inset(100% 0 0 0); } }
   .scroll-icon { left: 68px; top: 671px; width: 36px; height: 34px; }
-  .scroll-label {
-    left: 71px; top: 729px;
-    font: 500 12px/1 var(--sans); letter-spacing: .33em; text-transform: uppercase;
-    opacity: .72;                      /* maquette : SCROLL à ~65-70 % */
-    text-shadow: var(--shadow-light);
-  }
+  .scroll-icon g { transform-box: fill-box; transform-origin: center; animation: spin 14s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .scroll-label { left: 71px; top: 729px; font: 500 12px/1 var(--sans); letter-spacing: .33em; text-transform: uppercase; opacity: .72; text-shadow: var(--shadow-light); }
 
-  /* ---------- Accroche japonaise ---------- */
-  .jp {
-    left: 1700px; top: 205px;
-    writing-mode: vertical-rl;
-    font: 700 38px/60px var(--jp);
-    letter-spacing: .02em;
-    color: #050505;                   /* maquette : noir pur */
-    text-shadow: var(--shadow-dark);
-    height: 390px;
-  }
-  .jp span { display: block; }
-  .jp span:last-child { margin-top: 7px; }
-  .jp-tick { left: 1730px; top: 580px; width: 1.5px; height: 26px; background: var(--ink); }
-  .creer {
-    left: 1712px; top: 623px;
-    font: 700 13.8px/25px var(--serif); letter-spacing: .27em; text-transform: uppercase;
-    color: #2a2622; text-shadow: var(--shadow-dark);   /* maquette : un peu moins noir que la nav */
-  }
+  .jp { left: 1700px; top: 205px; writing-mode: vertical-rl; font: 700 38px/60px var(--jp); letter-spacing: .02em;
+        color: #050505; text-shadow: var(--shadow-dark); height: 390px; }
+  .jp > span { display: block; }
+  .jp > span:last-child { margin-top: 7px; }
+  .jp-tick { left: 1730px; top: 580px; width: 1.5px; height: 26px; background: var(--ink); transform-origin: top; }
+  .creer { left: 1712px; top: 623px; font: 700 13.8px/25px var(--serif); letter-spacing: .27em; text-transform: uppercase;
+           color: #2a2622; text-shadow: var(--shadow-dark); }
+  .creer > span { display: block; }
 
-  /* ---------- Bas gauche ---------- */
   .rule { left: 84px; top: 839px; width: 36px; height: 1px; background: var(--ivory); }
-  .intro {
-    left: 78px; top: 859px;
-    font: 500 26.7px/34.4px var(--serif);
-    text-shadow: var(--shadow-light);
-    white-space: nowrap;
-  }
+  .intro { left: 78px; top: 859px; font: 500 26.7px/34.4px var(--serif); text-shadow: var(--shadow-light); white-space: nowrap; }
   .cta { top: 964px; height: 33px; font: 600 22px/1 var(--serif); color: var(--ivory); text-decoration: none; text-shadow: var(--shadow-light); white-space: nowrap; }
   .cta.projects { left: 79px;  width: 193px; }
   .cta.journal  { left: 361px; width: 192px; }
   .cta::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1.5px; background: var(--ivory); opacity: .9; }
   .cta svg { position: absolute; right: 0; top: 4px; width: 40px; height: 14px; }
 
-  /* ---------- Bas droite ---------- */
-  .br {
-    left: 1712px; top: 968px;
-    font: 600 7.5px/16.5px var(--sans); letter-spacing: .30em; text-transform: uppercase;
-    color: var(--ink); text-shadow: var(--shadow-dark);
-  }
+  .br { left: 1712px; top: 968px; font: 600 7.5px/16.5px var(--sans); letter-spacing: .30em; text-transform: uppercase; color: var(--ink); text-shadow: var(--shadow-dark); }
   .br-rule { left: 1819px; top: 984px; width: 35px; height: 1.5px; background: var(--ink); }
 
+  /* ---------- après le hero : vide de brume, puis scène 2 (placeholder, même direction artistique) ---------- */
+  .void { position: relative; height: 280px; background: var(--mist); overflow: hidden; }
+  .void .drift { position: absolute; left: -10%; top: -60%; width: 120%; height: 220%; background: url(clouds-near.webp) center / cover no-repeat;
+                 opacity: .45; animation: driftNear 30s ease-in-out infinite alternate; }
+  .thread { position: absolute; left: 50%; top: 0; width: 2px; height: 0; background: var(--red); transform: translateX(-50%); }
+  .scene2 { position: relative; min-height: 100vh; background: var(--mist); color: var(--ink); overflow: hidden;
+            display: flex; align-items: center; justify-content: center; text-align: center; padding: 14vh 8vw; }
+  .scene2 .clouds2 { position: absolute; inset: -25% -10%; background: url(clouds-mid.webp) center / cover no-repeat; opacity: .28;
+                     animation: driftMid 40s ease-in-out infinite alternate; pointer-events: none; }
+  .scene2 .content { position: relative; max-width: 900px; }
+  .scene2 .label { font: 600 11px/1 var(--sans); letter-spacing: .42em; text-transform: uppercase; opacity: .65; margin-bottom: 34px; }
+  .scene2 h2 { font: 400 clamp(28px, 3.4vw, 58px)/1.22 var(--serif); letter-spacing: .01em; }
+  .scene2 .sub { margin-top: 40px; font: 500 14px/1.8 var(--serif); letter-spacing: .2em; text-transform: uppercase; opacity: .55; }
+
   /* =====================================================================
-     MOBILE (portrait, ≤ 767 px) — scène de référence 430 × 932 (maquette mobile 852 × 1846 ÷ 2).
-     Même principe : calques texte ancrés à gauche / à droite, mis à l'échelle pour tenir sans scroll.
-     Fond : le ciel est recadré sur la lune ; roche + personnage (premier plan) sont réduits à 47,6 %
-     et déplacés en bas à gauche, comme sur la maquette mobile.
+     MOBILE (portrait, ≤ 767 px) — scène 430 × 932 (maquette mobile 852 × 1846 ÷ 2).
+     Ciel recadré sur les nuages, lune réduite fondue par masque, roche + personnage à 47,6 % en bas à gauche.
      ===================================================================== */
-  @media (max-width: 767px) and (orientation: portrait) {
-    .hero { --stage-w: 430; --stage-h: 932; }
+  @media (max-width: 767px) {
+    .hero { --stage-w: 430; --stage-h: 932; --cx: 284px; --cy: 261px; }
     .stage { width: 430px; height: 932px; }
     .bg { width: 430px; height: 932px; }
-    /* Fond de nuages : l'image en couverture (hauteur 932), fenêtre prise à droite de la lune (montagnes, pagodes) */
-    .bg .sky { display: block; left: -1191px; top: 0; width: 1657px; height: 932px; }
-    /* Lune : même image à l'échelle .6, centrée à 66 % / 28 % de l'écran, fondue dans les nuages par un masque radial */
-    .bg .moon { display: block; left: -406px; top: 117px; width: 1152px; height: 648px;
+    .cam { transform-origin: 50% 40%; }
+    .bg .skyish { left: -1191px; top: -6px; width: 1657px; height: 944px; }       /* fenêtre prise à droite de la lune */
+    .bg .moon { left: -406px; top: 117px; width: 1152px; height: 648px; transform-origin: 60% 22%;
       -webkit-mask-image: radial-gradient(ellipse 34% 40% at 60% 22%, #000 45%, transparent 100%);
               mask-image: radial-gradient(ellipse 34% 40% at 60% 22%, #000 45%, transparent 100%); }
-    /* Voile sombre en haut : la maquette mobile a un ciel nocturne au-dessus de la lune */
-    .bg .scrim { display: block; position: absolute; left: 0; top: 0; width: 430px; height: 420px;
+    .glow { background: radial-gradient(circle at var(--cx) var(--cy), rgba(255,246,230,.40) 0, rgba(255,246,230,.14) 90px, rgba(255,246,230,0) 210px); }
+    .bg .mist { left: -1300px; top: -120px; width: 1900px; height: 1070px; }
+    .scrim { display: block; position: absolute; left: 0; top: 0; width: 430px; height: 420px; pointer-events: none;
       background: linear-gradient(to bottom, rgba(10,8,7,.72) 0%, rgba(10,8,7,.45) 45%, rgba(10,8,7,0) 100%); }
-    /* Voile sombre en bas : paragraphe et liens restent lisibles sur les nuages (roche sombre sur la maquette) */
-    .bg .scrim::after { content: ""; position: absolute; left: 0; top: 560px; width: 430px; height: 372px;
+    .scrim::after { content: ""; position: absolute; left: 0; top: 560px; width: 430px; height: 372px;
       background: linear-gradient(to bottom, rgba(10,8,7,0) 0%, rgba(10,8,7,.45) 45%, rgba(10,8,7,.7) 100%); }
-    .fg { transform: translate(-233px, 246px) scale(.476); }              /* pieds du personnage à 68 % de la hauteur */
+    .fg { transform: translate(-233px, 246px) scale(.476); }
+    .scarf-line.d { display: none; }
+    .scarf-line.m { display: block; width: 430px; height: 932px; }
 
-    /* --- gauche --- */
     .logo    { left: 30px; top: 60px; font-size: 33px; letter-spacing: .34em; }
-    .logo-jp { display: none; }                                            /* absent de la maquette mobile */
+    .logo-jp { display: none; }
     .tagline { left: 30px; top: 108px; font-size: 10px; line-height: 16.7px; letter-spacing: .34em; }
     .scroll-line  { left: 38.5px; top: 565px; height: 86px; width: 1px; }
     .scroll-icon  { left: 29px; top: 659px; width: 20px; height: 20px; }
@@ -207,70 +199,105 @@
     .cta svg { top: 3px; width: 26px; height: 10px; }
     .br { left: 30px; top: 852px; font-size: 7px; line-height: 12.5px; letter-spacing: .3em; color: var(--ivory); opacity: .7; text-shadow: var(--shadow-light); }
     .br-rule { display: none; }
-
-    /* --- droite --- */
-    .nav { display: none; }                                                /* menu seul sur mobile */
+    .nav { display: none; }
     .menu { left: 368px; top: 60px; width: 32px; height: 32px; border-color: var(--ivory); border-width: 1.2px; }
     .menu::before, .menu::after { content: ""; position: absolute; left: 10px; right: 10px; height: 1.2px; background: var(--ivory); }
     .menu::before { top: 12px; } .menu::after { top: 18px; }
     .jp { left: 303px; top: 139px; font-size: 22px; line-height: 39px; letter-spacing: .04em; height: 220px; }
-    .jp span:last-child { margin-top: 4px; }
+    .jp > span:last-child { margin-top: 4px; }
     .jp-tick { left: 314.5px; top: 364px; height: 14px; width: 1px; }
     .creer { left: 305px; top: 390px; font-size: 8.5px; line-height: 15px; letter-spacing: .25em; }
+    .void { height: 200px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .far, .mid, .near, .moon, .glow, .scroll-line::after, .scroll-icon g, .void .drift, .scene2 .clouds2 { animation: none !important; }
   }
 </style>
 </head>
 <body>
 <div class="hero" id="hero">
   <div class="bg" aria-hidden="true">
-    <img class="sky" src="bg1-3.png" alt="">
-    <img class="sky moon" src="bg1-3.png" alt="">          <!-- mobile : la lune, réduite et fondue dans le ciel -->
-    <div class="scrim"></div>                               <!-- mobile : assombrissement du haut (lisibilité du logo) -->
-    <div class="fg">                                          <!-- premier plan : roche + personnage (réduit et déplacé sur mobile) -->
-      <img class="rock"      src="bg1-1.png" alt="">
-      <img class="hero-char" src="bg1-2.png" alt="">        <!-- version fixe : repli si WebGL indisponible -->
-      <canvas class="hero-wind" id="wind"></canvas>          <!-- version animée : corps + cape + écharpe -->
+    <div class="cam" id="cam">
+      <div class="layer sky-w"  id="skyW"><img class="skyish sky" src="bg1-3.png" alt=""></div>
+      <div class="layer far-w"  id="farW"><img class="skyish clouds far" src="clouds-far.webp" alt=""></div>
+      <div class="layer moon-w" id="moonW"><img class="skyish moon" src="bg1-3.png" alt=""></div>
+      <div class="layer glow-w" id="glowW"><div class="glow"></div></div>
+      <div class="layer mid-w"  id="midW"><img class="skyish clouds mid" src="clouds-mid.webp" alt=""></div>
+      <div class="layer near-w" id="nearW"><img class="skyish clouds near" src="clouds-near.webp" alt=""></div>
+      <div class="haze in" id="hazeIn"></div>
+      <div class="fg">
+        <div class="layer rock-w" id="rockW"><img class="rock" src="bg1-1.png" alt=""></div>
+        <div class="layer char-w" id="charW">
+          <img class="hero-char" src="bg1-2.png" alt="">        <!-- version fixe : repli si WebGL indisponible -->
+          <canvas class="hero-wind" id="wind"></canvas>          <!-- version animée : corps + cape + écharpe -->
+        </div>
+      </div>
+      <div class="layer mist-w" id="mistW"><img class="mist" src="clouds-near.webp" alt=""></div>
+      <div class="haze out" id="hazeOut"></div>
+    </div>
+    <div class="scrim"></div>
+    <!-- fil rouge : part du bout de l'écharpe, traverse la brume, rejoint le centre bas → scène 2 -->
+    <svg class="scarf-line d" id="lineD" viewBox="0 0 1920 1080"><path d="M 79 460 C 200 380, 330 430, 470 560 C 640 730, 760 620, 960 660 C 1120 690, 1010 900, 960 1080"/></svg>
+    <svg class="scarf-line m" id="lineM" viewBox="0 0 430 932"><path d="M 0 470 C 80 420, 140 520, 215 560 C 300 610, 260 800, 215 932"/></svg>
+    <div class="veil" id="veil"></div>
+  </div>
+
+  <div class="stage left">
+    <div class="grp grp-logo" id="gLogo">
+      <div class="logo" id="logo">TSUKIYO</div>
+      <div class="logo-jp" id="logoJp" lang="ja">月夜</div>
+      <div class="tagline rv">Studio<br>Digital craft<br>For a deeper tomorrow</div>
+    </div>
+    <div class="grp grp-scroll" id="gScroll">
+      <div class="scroll-line rv" id="scrollLine"></div>
+      <svg class="scroll-icon rv" viewBox="0 0 28 28" fill="none" stroke="#efe7db" stroke-width="1.2">
+        <g><path d="M 6.5 6.5 A 12 12 0 1 0 14 2" stroke-linecap="round"/><circle cx="12.5" cy="12" r="1.8" fill="#efe7db" stroke="none"/></g>
+      </svg>
+      <div class="scroll-label rv">Scroll</div>
+    </div>
+    <div class="grp grp-bl" id="gBl">
+      <div class="rule rv"></div>
+      <p class="intro rv">Immersive digital experiences<br>shaped by story, craft and atmosphere.</p>
+      <a class="cta projects rv" href="#">View Projects
+        <svg viewBox="0 0 38 14" fill="none" stroke="#efe7db" stroke-width="1.2"><path d="M0 7h36M30 1l6 6-6 6"/></svg></a>
+      <a class="cta journal rv" href="#">Enter Journal
+        <svg viewBox="0 0 38 14" fill="none" stroke="#efe7db" stroke-width="1.2"><path d="M0 7h36M30 1l6 6-6 6"/></svg></a>
     </div>
   </div>
 
-  <!-- Calque ancré au bord gauche -->
-  <div class="stage left">
-    <div class="logo">TSUKIYO</div>
-    <div class="logo-jp" lang="ja">月夜</div>
-    <div class="tagline">Studio<br>Digital craft<br>For a deeper tomorrow</div>
-
-    <div class="scroll-line"></div>
-    <svg class="scroll-icon" viewBox="0 0 28 28" fill="none" stroke="#efe7db" stroke-width="1.2">
-      <path d="M 6.5 6.5 A 12 12 0 1 0 14 2" stroke-linecap="round"/>
-      <circle cx="12.5" cy="12" r="1.8" fill="#efe7db" stroke="none"/>
-    </svg>
-    <div class="scroll-label">Scroll</div>
-
-    <div class="rule"></div>
-    <p class="intro">Immersive digital experiences<br>shaped by story, craft and atmosphere.</p>
-    <a class="cta projects" href="#">View Projects
-      <svg viewBox="0 0 38 14" fill="none" stroke="#efe7db" stroke-width="1.2"><path d="M0 7h36M30 1l6 6-6 6"/></svg></a>
-    <a class="cta journal" href="#">Enter Journal
-      <svg viewBox="0 0 38 14" fill="none" stroke="#efe7db" stroke-width="1.2"><path d="M0 7h36M30 1l6 6-6 6"/></svg></a>
-  </div>
-
-  <!-- Calque ancré au bord droit -->
   <div class="stage right">
-    <nav class="nav">
-      <a href="#">Studio</a><a href="#">Projects</a><a href="#">Journal</a><a href="#">Contact</a>
-    </nav>
-    <div class="menu" aria-label="Menu"></div>
-
-    <div class="jp"><span>まだ見ぬ、</span><span>美しい未来をつくる</span></div>
-    <div class="jp-tick"></div>
-    <div class="creer">Créer<br>un demain<br>plus beau</div>
-
-    <div class="br">Art<br>People<br>A brighter tomorrow</div>
-    <div class="br-rule"></div>
+    <div class="grp grp-nav" id="gNav">
+      <nav class="nav"><a class="rv" href="#">Studio</a><a class="rv" href="#">Projects</a><a class="rv" href="#">Journal</a><a class="rv" href="#">Contact</a></nav>
+      <div class="menu rv" aria-label="Menu"></div>
+    </div>
+    <div class="grp grp-jp" id="gJp">
+      <div class="jp" id="jp"><span>まだ見ぬ、</span><span>美しい未来をつくる</span></div>
+      <div class="jp-tick" id="jpTick"></div>
+      <div class="creer" id="creer"><span>Créer</span><span>un demain</span><span>plus beau</span></div>
+    </div>
+    <div class="grp grp-br" id="gBr">
+      <div class="br rv">Art<br>People<br>A brighter tomorrow</div>
+      <div class="br-rule rv"></div>
+    </div>
   </div>
 </div>
+
+<!-- Vide de brume : 200–300 px où il n'y a que la brume et le fil rouge -->
+<section class="void" aria-hidden="true"><div class="drift"></div><div class="thread" id="threadVoid"></div></section>
+
+<!-- Scène 2 — PLACEHOLDER : structure et direction artistique en place, contenu à définir -->
+<section class="scene2" id="scene2">
+  <div class="clouds2"></div>
+  <div class="thread" id="thread2"></div>
+  <div class="content" id="scene2Content">
+    <div class="label">01 — Philosophie</div>
+    <h2>Nous créons des expériences où la lumière traverse la brume.</h2>
+    <div class="sub">Scène à écrire</div>
+  </div>
+</section>
+
 <script>
-  // Facteur d'échelle : la scène 1920×1080 tient toujours entièrement dans la fenêtre.
+  // Facteur d'échelle : la scène (1920×1080 ou 430×932) tient toujours dans la fenêtre.
   (function () {
     var hero = document.getElementById('hero');
     function fit() {
@@ -279,12 +306,158 @@
       hero.style.setProperty('--s',   Math.min(w, h).toFixed(5)); // calques texte : tout tient
       hero.style.setProperty('--sbg', Math.max(w, h).toFixed(5)); // fond : couvre tout
     }
-    fit();
-    window.addEventListener('resize', fit);
-    window.addEventListener('orientationchange', fit);
+    fit(); window.addEventListener('resize', fit); window.addEventListener('orientationchange', fit);
   })();
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.18/dist/lenis.min.js"></script>
+<script>
+/* =====================================================================
+   Mise en scène : ouverture cinématographique, lune vivante, parallaxe
+   souris, hero épinglé sur 180 vh (GSAP ScrollTrigger + Lenis), brume de
+   transition, fil rouge. Paramètres d'URL : ?intro=0 (sans ouverture),
+   ?p=0.6 (fige la progression du scroll), ?t=2.6 (fige le vent).
+   ===================================================================== */
+(function () {
+  if (!window.gsap || !window.ScrollTrigger) { document.documentElement.classList.remove('js'); return; }
+  gsap.registerPlugin(ScrollTrigger);
+  var $ = function (s) { return document.querySelector(s); }, $$ = function (s) { return Array.prototype.slice.call(document.querySelectorAll(s)); };
+  var q = new URLSearchParams(location.search);
+  var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var noIntro = reduced || q.get('intro') === '0';
+  var fixedP = q.has('p') ? parseFloat(q.get('p')) : null;
+  var fine = matchMedia('(pointer: fine)').matches;
+  var hero = $('#hero');
 
+  // --- découpe des textes en caractères (révélations lettre par lettre) ---
+  function split(el) {
+    var out = [];
+    Array.prototype.slice.call(el.childNodes).forEach(function (n) {
+      if (n.nodeType !== 3) { out.push(n); return; }
+      var frag = document.createDocumentFragment();
+      Array.from(n.textContent).forEach(function (ch) { var s = document.createElement('span'); s.className = 'ch'; s.textContent = ch; frag.appendChild(s); out.push(s); });
+      el.replaceChild(frag, n);
+    });
+    return out;
+  }
+  var logoCh = split($('#logo')), logoJpCh = split($('#logoJp'));
+  var jpCh = []; $$('#jp span').forEach(function (s) { jpCh = jpCh.concat(split(s)); });
+  var creerLines = $$('#creer span');
+  var rv = $$('.rv');                                         // autres éléments UI révélés par masque haut → bas
+
+  // --- éléments animés ---
+  var E = { cam: $('#cam'), sky: $('#skyW'), far: $('#farW'), moon: $('#moonW'), glow: $('#glowW'), mid: $('#midW'), near: $('#nearW'),
+            hazeIn: $('#hazeIn'), rock: $('#rockW'), chr: $('#charW'), mist: $('#mistW'), hazeOut: $('#hazeOut'), veil: $('#veil'),
+            lineD: $('#lineD'), lineM: $('#lineM'), gLogo: $('#gLogo'), gNav: $('#gNav'), gScroll: $('#gScroll'), gBl: $('#gBl'), gJp: $('#gJp'), gBr: $('#gBr'),
+            logo: $('#logo'), scrollLine: $('#scrollLine'), jpTick: $('#jpTick') };
+  var pathD = E.lineD.querySelector('path'), pathM = E.lineM.querySelector('path');
+  [pathD, pathM].forEach(function (p) { var L = p.getTotalLength(); p.style.strokeDasharray = L; p.style.strokeDashoffset = L; p.dataset.len = L; });
+
+  // --- scroll inertiel + épinglage du hero sur 180 vh ---
+  var progress = 0, lenis = null;
+  if (window.Lenis) {
+    lenis = new Lenis({ lerp: .09, smoothWheel: true });
+    lenis.on('scroll', ScrollTrigger.update);
+    gsap.ticker.add(function (t) { lenis.raf(t * 1000); });
+    gsap.ticker.lagSmoothing(0);
+  }
+  ScrollTrigger.config({ ignoreMobileResize: true });
+  ScrollTrigger.create({ trigger: hero, start: 'top top', end: '+=180%', pin: true, pinSpacing: true, anticipatePin: 1,
+                         onUpdate: function (s) { progress = s.progress; } });
+  // fil rouge dans le vide puis dans la scène 2, tiré par le scroll
+  gsap.to('#threadVoid', { height: '100%', ease: 'none', scrollTrigger: { trigger: '.void', start: 'top 95%', end: 'bottom 60%', scrub: true } });
+  gsap.to('#thread2', { height: 140, ease: 'none', scrollTrigger: { trigger: '#scene2', start: 'top 70%', end: 'top 15%', scrub: true } });
+  gsap.fromTo('#scene2Content', { opacity: 0, y: 36 }, { opacity: 1, y: 0, ease: 'none', scrollTrigger: { trigger: '#scene2', start: 'top 55%', end: 'top 10%', scrub: true } });
+
+  // --- parallaxe souris (desktop) ---
+  var mouse = { x: 0, y: 0, tx: 0, ty: 0 };
+  if (fine && !reduced) addEventListener('mousemove', function (e) {
+    mouse.tx = (e.clientX / innerWidth - .5) * 2; mouse.ty = (e.clientY / innerHeight - .5) * 2;
+  });
+
+  // --- composition à chaque image : souris + progression du scroll ---
+  function seg(p, a, b) { var t = Math.min(1, Math.max(0, (p - a) / (b - a))); return t * t * (3 - 2 * t); }
+  function tf(el, x, y, s) { el.style.transform = 'translate3d(' + x.toFixed(2) + 'px,' + y.toFixed(2) + 'px,0)' + (s && s !== 1 ? ' scale(' + s.toFixed(4) + ')' : ''); }
+  var lastLS = null, introDone = noIntro;
+  function loop() {
+    var p = fixedP !== null ? fixedP : progress;
+    mouse.x += (mouse.tx - mouse.x) * .06; mouse.y += (mouse.ty - mouse.y) * .06;
+    var mx = mouse.x, my = mouse.y;
+    var u = (parseFloat(getComputedStyle(hero).getPropertyValue('--stage-w')) || 1920) / 1920;   // px de scène ↔ px 1920
+
+    /* chronologie du scroll (p = 0 → 1 sur 180 vh) */
+    var depth = seg(p, 0, .15);            // 0–15 %  : le décor prend de la profondeur
+    var zoom  = 1 + .035 * seg(p, .15, .35); // 15–35 % : zoom caméra
+    var par   = seg(p, .2, .45);           // 20–45 % : nuages + montagnes en parallaxe
+    var jpUp  = seg(p, .3, .5);            // 30–50 % : texte japonais remonte
+    var uiOut = seg(p, .4, .6);            // 40–60 % : logo et navigation disparaissent
+    var cliff = seg(p, .5, .7);            // 50–70 % : la falaise glisse vers la gauche
+    var moon  = seg(p, .55, .75);          // 55–75 % : la lune grossit
+    var mist  = seg(p, .65, .85);          // 65–85 % : la brume monte et masque le personnage
+    var line  = seg(p, .75, .95);          // 75–95 % : l'écharpe devient le fil rouge
+    var haze  = seg(p, .72, .97);          // 95–100 % : la scène 2 est révélée dans la brume
+
+    E.cam.style.transform = 'scale(' + zoom.toFixed(4) + ')';
+    tf(E.sky,  mx * 5 * (1 + .4 * depth) + par * 6 * u,   my * 3);
+    tf(E.far,  mx * 4 + par * 8 * u,                        my * 2);
+    tf(E.moon, -mx * 3.5,                                   -my * 2, 1 + .08 * moon);
+    tf(E.glow, -mx * 3.5,                                   -my * 2, 1 + .12 * moon);
+    tf(E.mid,  mx * 8 * (1 + .5 * depth) - par * 16 * u,   my * 4);
+    tf(E.near, mx * 12 * (1 + .6 * depth) + par * 30 * u,  my * 6);
+    tf(E.rock, mx * 22 - cliff * 140, my * 12 + cliff * 10, 1 + .04 * cliff);      // repère 1920 (dans .fg)
+    tf(E.chr,  mx * 15 - cliff * 140, my * 8  + cliff * 10);
+    E.mist.style.opacity = mist; tf(E.mist, mx * 10, my * 5 + (1 - mist) * 260 * u);
+    E.hazeOut.style.opacity = haze;
+    var pth = u < .5 ? pathM : pathD, ln = u < .5 ? E.lineM : E.lineD;
+    ln.style.opacity = line > 0 ? 1 : 0; pth.style.strokeDashoffset = parseFloat(pth.dataset.len) * (1 - line);
+
+    /* UI */
+    var stretch = seg(p, 0, .05), scrollOut = seg(p, .08, .25);
+    E.scrollLine.style.transform = 'scaleY(' + (1 + .3 * stretch) + ')';
+    E.gScroll.style.opacity = 1 - scrollOut;
+    E.gLogo.style.opacity = E.gNav.style.opacity = 1 - uiOut;
+    tf(E.gLogo, 0, -12 * uiOut); tf(E.gNav, 0, -12 * uiOut);
+    if (introDone) { var ls = (.42 + .28 * uiOut).toFixed(3) + 'em'; if (ls !== lastLS) { E.logo.style.letterSpacing = ls; lastLS = ls; } }
+    E.gJp.style.opacity = 1 - seg(p, .6, .8); tf(E.gJp, 0, -40 * jpUp);
+    E.gBl.style.opacity = 1 - seg(p, .5, .7); tf(E.gBl, 0, 20 * seg(p, .5, .7));
+    E.gBr.style.opacity = 1 - seg(p, .55, .75);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // --- ouverture cinématographique (~3 s) ---
+  var stages = $$('.stage');
+  function finalState() {
+    gsap.set(stages, { visibility: 'visible' });
+    gsap.set(logoCh.concat(logoJpCh, jpCh, creerLines, rv), { clipPath: 'none', opacity: 1 });
+    gsap.set(E.veil, { display: 'none' }); gsap.set(E.hazeIn, { opacity: 0 });
+    gsap.set(E.rock, { filter: 'none' }); gsap.set(E.chr, { opacity: 1, filter: 'none' }); gsap.set(E.glow, { opacity: 1 });
+    gsap.set(E.jpTick, { scaleY: 1 }); introDone = true;
+  }
+  if (noIntro) { finalState(); return; }
+  gsap.set(stages, { visibility: 'visible' });
+  gsap.set(logoCh.concat(logoJpCh, jpCh, creerLines, rv), { clipPath: 'inset(0 0 100% 0)', opacity: 0 });
+  gsap.set(E.logo, { letterSpacing: '.95em' });
+  gsap.set(E.hazeIn, { opacity: .8 });
+  gsap.set(E.rock, { filter: 'brightness(0.06)' });
+  gsap.set(E.chr, { opacity: 0, filter: 'brightness(0)' });
+  gsap.set(E.jpTick, { scaleY: 0 });
+  var tl = gsap.timeline({ defaults: { ease: 'power2.out' }, onComplete: function () { introDone = true; E.veil.style.display = 'none'; } });
+  tl.to(E.veil, { '--r': '1700px', duration: 1.8, ease: 'power1.inOut' }, .3)                       // la lumière de la lune gagne le ciel
+    .to(E.glow, { opacity: 1, duration: 1.4, ease: 'power1.inOut' }, .4)
+    .to(E.hazeIn, { opacity: 0, duration: 1.6, ease: 'power1.inOut' }, 1.0)                           // les montagnes émergent de la brume
+    .to(E.rock, { filter: 'brightness(1)', duration: 1.4, ease: 'power1.inOut' }, 1.5)                // la falaise sort du noir
+    .to(E.chr, { opacity: 1, filter: 'brightness(1)', duration: 1.2, ease: 'power1.out' }, 1.9)       // le personnage sort de l'ombre
+    .to(logoCh, { clipPath: 'inset(0 0 0% 0)', opacity: 1, duration: .6, stagger: .08 }, 2.2)          // TSUKIYO lettre par lettre
+    .to(E.logo, { letterSpacing: '.42em', duration: 1.3, ease: 'power2.out' }, 2.2)                   // tracking très large qui se resserre
+    .to(logoJpCh, { clipPath: 'inset(0 0 0% 0)', opacity: 1, duration: .6, stagger: .1 }, 2.85)        // 月夜
+    .to(rv, { clipPath: 'inset(0 0 0% 0)', opacity: function (i, el) { return el.classList.contains('tagline') ? .8 : el.classList.contains('scroll-label') ? .72 : 1; }, duration: .7, stagger: .05 }, 2.7)
+    .to(jpCh, { clipPath: 'inset(0 0 0% 0)', opacity: 1, duration: .45, stagger: .065 }, 2.6)          // japonais révélé de haut en bas
+    .to(E.jpTick, { scaleY: 1, duration: .5, ease: 'power2.inOut' }, 3.55)                             // puis la ligne s'allonge
+    .to(creerLines, { clipPath: 'inset(0 0 0% 0)', opacity: 1, duration: .5, stagger: .12 }, 3.95);   // puis CRÉER UN DEMAIN PLUS BEAU
+})();
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 /* =====================================================================
