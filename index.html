@@ -55,7 +55,10 @@
   .bg img { position: absolute; display: block; }
   .bg .sky   { left: 0; top: 0; width: 1920px; height: 1080px; }
   .bg .hero-char { left: 34.4px; top: 222.8px; width: 1129.0px; height: auto; }
-  .bg .rock  { left: 0; top: 0; width: 1920px; height: 1080px; }
+  /* Le calque roche livré est plus clair et plus saturé que bg1.png (feuillage rouge trop
+     présent). Correction mesurée par recalage sur l'original : -22 % de luminosité, -45 % de
+     saturation — améliore feuillage, roche, falaise et pin sans en dégrader aucun.        */
+  .bg .rock  { left: 0; top: 0; width: 1920px; height: 1080px; filter: brightness(.78) saturate(.55); }
   .stage {
     position: absolute; top: 50%;
     width: 1920px; height: 1080px;
