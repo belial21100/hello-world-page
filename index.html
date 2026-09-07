@@ -41,7 +41,7 @@
      l'autre au bord droit, centrés verticalement. À 1920×1080 ils coïncident
      exactement avec la maquette ; sur un autre ratio la composition reste
      collée aux bords sans jamais déborder.                                   */
-  .hero { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; overflow: hidden; --s: 1; --sbg: 1; }
+  .hero { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; overflow: hidden; --s: 1; --sbg: 1; --stage-w: 1920; --stage-h: 1080; }
   /* Fond en trois calques (repère 1920×1080, mis à l'échelle en "cover" par --sbg) :
        bg1-3 : ciel, lune, montagnes (opaque)          — plein cadre
        bg1-2 : personnage (détouré, livré agrandi)      — échelle 0.588, position (30, 194) en 1672 px
@@ -55,6 +55,8 @@
     transform-origin: center;
   }
   .bg img { position: absolute; display: block; }
+  .fg { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
+  .bg .moon, .bg .scrim { display: none; }
   .bg .sky   { left: 0; top: 0; width: 1920px; height: 1080px; }
   .bg .hero-char { left: 34.4px; top: 222.8px; width: 1129.0px; height: auto; }
   /* Personnage animé (Three.js) : même cadre que bg1-2, avec une marge de 80×40 px pour les mouvements */
@@ -165,15 +167,67 @@
     color: var(--ink); text-shadow: var(--shadow-dark);
   }
   .br-rule { left: 1819px; top: 984px; width: 35px; height: 1.5px; background: var(--ink); }
+
+  /* =====================================================================
+     MOBILE (portrait, ≤ 767 px) — scène de référence 430 × 932 (maquette mobile 852 × 1846 ÷ 2).
+     Même principe : calques texte ancrés à gauche / à droite, mis à l'échelle pour tenir sans scroll.
+     Fond : le ciel est recadré sur la lune ; roche + personnage (premier plan) sont réduits à 47,6 %
+     et déplacés en bas à gauche, comme sur la maquette mobile.
+     ===================================================================== */
+  @media (max-width: 767px) and (orientation: portrait) {
+    .hero { --stage-w: 430; --stage-h: 932; }
+    .stage { width: 430px; height: 932px; }
+    .bg { width: 430px; height: 932px; }
+    /* Fond de nuages : l'image en couverture (hauteur 932), fenêtre prise à droite de la lune (montagnes, pagodes) */
+    .bg .sky { display: block; left: -1191px; top: 0; width: 1657px; height: 932px; }
+    /* Lune : même image à l'échelle .6, centrée à 66 % / 28 % de l'écran, fondue dans les nuages par un masque radial */
+    .bg .moon { display: block; left: -406px; top: 117px; width: 1152px; height: 648px;
+      -webkit-mask-image: radial-gradient(ellipse 34% 40% at 60% 22%, #000 45%, transparent 100%);
+              mask-image: radial-gradient(ellipse 34% 40% at 60% 22%, #000 45%, transparent 100%); }
+    /* Voile sombre en haut : la maquette mobile a un ciel nocturne au-dessus de la lune */
+    .bg .scrim { display: block; position: absolute; left: 0; top: 0; width: 430px; height: 420px;
+      background: linear-gradient(to bottom, rgba(10,8,7,.72) 0%, rgba(10,8,7,.45) 45%, rgba(10,8,7,0) 100%); }
+    .fg { transform: translate(-233px, 246px) scale(.476); }              /* pieds du personnage à 68 % de la hauteur */
+
+    /* --- gauche --- */
+    .logo    { left: 30px; top: 60px; font-size: 33px; letter-spacing: .34em; }
+    .logo-jp { display: none; }                                            /* absent de la maquette mobile */
+    .tagline { left: 30px; top: 108px; font-size: 10px; line-height: 16.7px; letter-spacing: .34em; }
+    .scroll-line  { left: 38.5px; top: 565px; height: 86px; width: 1px; }
+    .scroll-icon  { left: 29px; top: 659px; width: 20px; height: 20px; }
+    .scroll-label { left: 30px; top: 692px; font-size: 9px; letter-spacing: .3em; }
+    .rule  { display: none; }
+    .intro { left: 30px; top: 735px; font-size: 17px; line-height: 19px; }
+    .cta   { top: 802px; height: 27px; font-size: 17px; }
+    .cta.projects { left: 30px;  width: 149px; }
+    .cta.journal  { left: 233px; width: 156px; }
+    .cta svg { top: 3px; width: 26px; height: 10px; }
+    .br { left: 30px; top: 852px; font-size: 7px; line-height: 12.5px; letter-spacing: .3em; color: var(--ivory); opacity: .7; text-shadow: var(--shadow-light); }
+    .br-rule { display: none; }
+
+    /* --- droite --- */
+    .nav { display: none; }                                                /* menu seul sur mobile */
+    .menu { left: 368px; top: 60px; width: 32px; height: 32px; border-color: var(--ivory); border-width: 1.2px; }
+    .menu::before, .menu::after { content: ""; position: absolute; left: 10px; right: 10px; height: 1.2px; background: var(--ivory); }
+    .menu::before { top: 12px; } .menu::after { top: 18px; }
+    .jp { left: 303px; top: 139px; font-size: 22px; line-height: 39px; letter-spacing: .04em; height: 220px; }
+    .jp span:last-child { margin-top: 4px; }
+    .jp-tick { left: 314.5px; top: 364px; height: 14px; width: 1px; }
+    .creer { left: 305px; top: 390px; font-size: 8.5px; line-height: 15px; letter-spacing: .25em; }
+  }
 </style>
 </head>
 <body>
 <div class="hero" id="hero">
   <div class="bg" aria-hidden="true">
-    <img class="sky"       src="bg1-3.png" alt="">
-    <img class="rock"      src="bg1-1.png" alt="">
-    <img class="hero-char" src="bg1-2.png" alt="">          <!-- version fixe : repli si WebGL indisponible -->
-    <canvas class="hero-wind" id="wind"></canvas>            <!-- version animée : corps + cape + écharpe -->
+    <img class="sky" src="bg1-3.png" alt="">
+    <img class="sky moon" src="bg1-3.png" alt="">          <!-- mobile : la lune, réduite et fondue dans le ciel -->
+    <div class="scrim"></div>                               <!-- mobile : assombrissement du haut (lisibilité du logo) -->
+    <div class="fg">                                          <!-- premier plan : roche + personnage (réduit et déplacé sur mobile) -->
+      <img class="rock"      src="bg1-1.png" alt="">
+      <img class="hero-char" src="bg1-2.png" alt="">        <!-- version fixe : repli si WebGL indisponible -->
+      <canvas class="hero-wind" id="wind"></canvas>          <!-- version animée : corps + cape + écharpe -->
+    </div>
   </div>
 
   <!-- Calque ancré au bord gauche -->
@@ -217,7 +271,8 @@
   (function () {
     var hero = document.getElementById('hero');
     function fit() {
-      var w = window.innerWidth / 1920, h = window.innerHeight / 1080;
+      var cs = getComputedStyle(hero), SW = parseFloat(cs.getPropertyValue('--stage-w')) || 1920, SH = parseFloat(cs.getPropertyValue('--stage-h')) || 1080;
+      var w = window.innerWidth / SW, h = window.innerHeight / SH;
       hero.style.setProperty('--s',   Math.min(w, h).toFixed(5)); // calques texte : tout tient
       hero.style.setProperty('--sbg', Math.max(w, h).toFixed(5)); // fond : couvre tout
     }
