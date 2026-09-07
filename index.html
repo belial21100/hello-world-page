@@ -227,9 +227,9 @@
 (function () {
   var FRAME = { w: 1672, h: 941 }, M = { x: 80, y: 40 }, T = 9, TAU = Math.PI * 2;
   var LAYERS = [   // ordre bas → haut ; box = zone utile dans le PNG ; s, x, y = recalage dans le cadre bg1-2
-    { name: 'body', src: 'bgperso-1.png', box: [801, 17, 1111, 920], s: 0.8375, x: 1078, y: 122, seg: [16, 48] },
-    { name: 'cape', src: 'bgperso-2.png', box: [250, 22, 1449, 924], s: 0.4925, x: 743, y: 270, seg: [48, 48] },
-    { name: 'scarf', src: 'bgperso-3.png', box: [22, 279, 1664, 562], s: 0.6375, x: 65, y: 210, seg: [96, 8] }
+    { name: 'body', src: 'bgperso-1.png', box: [801, 17, 1111, 920], s: 0.8375, x: 1078, y: 122, seg: [16, 48], adj: [0.85, 0.485, 1.02, 0], axis: 'v' },
+    { name: 'cape', src: 'bgperso-2.png', box: [250, 22, 1449, 924], s: 0.4925, x: 743, y: 270, seg: [48, 48], adj: [0.85, 0.415, 1.03, 0.38], axis: 'v' },
+    { name: 'scarf', src: 'bgperso-3.png', box: [22, 279, 1664, 562], s: 0.6375, x: 65, y: 210, seg: [96, 8], adj: [0.85, 0.56, 1.02, 1], axis: 'u' }
   ];
   var canvas = document.getElementById('wind'), still = document.querySelector('.hero-char');
   if (!window.THREE || !canvas) return;
@@ -254,7 +254,25 @@
         var u = uv.getX(k), v = uv.getY(k);
         uv.setXY(k, (L.box[0] + u * bw) / FRAME.w, 1 - (L.box[1] + (1 - v) * bh) / FRAME.h);
       }
-      var mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false }));
+      var mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false });
+      // Correction colorimétrique mesurée sur bg1-2 (les calques livrés sont trop clairs / trop vifs) :
+      // contraste autour du gris moyen, luminosité, saturation, puis dégradé d'ombre le long du tissu
+      // (écharpe : plus sombre vers l'extrémité ; cape : plus sombre vers le haut/épaules).
+      mat.onBeforeCompile = function (sh) {
+        sh.uniforms.uAdj    = { value: new THREE.Vector4(L.adj[0], L.adj[1], L.adj[2], L.adj[3]) };
+        sh.uniforms.uUvRect = { value: new THREE.Vector4(L.box[0] / FRAME.w, 1 - L.box[3] / FRAME.h, L.box[2] / FRAME.w, 1 - L.box[1] / FRAME.h) };
+        sh.uniforms.uAxis   = { value: L.axis === 'u' ? 0 : 1 };
+        sh.fragmentShader = sh.fragmentShader
+          .replace('#include <common>', '#include <common>\nuniform vec4 uAdj; uniform vec4 uUvRect; uniform float uAxis;')
+          .replace('#include <map_fragment>', '#include <map_fragment>\n' + [
+            'vec3 c = (diffuseColor.rgb - 0.5) * uAdj.x + 0.5;',
+            'c *= uAdj.y;',
+            'c = mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, uAdj.z);',
+            'float tt = uAxis < 0.5 ? (vUv.x - uUvRect.x) / (uUvRect.z - uUvRect.x) : (uUvRect.w - vUv.y) / (uUvRect.w - uUvRect.y);',
+            'c *= min(1.0, 1.0 + uAdj.w * (tt - 0.5));',
+            'diffuseColor.rgb = clamp(c, 0.0, 1.0);'].join('\n'));
+      };
+      var mesh = new THREE.Mesh(geo, mat);
       mesh.position.set(L.x + w / 2, -(L.y + h / 2), 0);
       mesh.renderOrder = i;
       mesh.userData = { orig: geo.attributes.position.array.slice(), w: w, h: h };
