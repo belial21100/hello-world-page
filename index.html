@@ -25,11 +25,12 @@
     --serif: "Cormorant Garamond", "Cormorant", Garamond, "Times New Roman", serif;
     --sans:  "Montserrat", "Helvetica Neue", Arial, sans-serif;
     --jp:    "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", serif;
-    --ivory: #efe7db;                 /* texte clair, sur la roche      */
-    --ink:   #2a2622;                 /* texte sombre, sur le ciel      */
-    /* Ombres portées : halo doux sous le texte clair, quasi nulle sous le sombre */
-    --shadow-light: 0 1px 2px rgba(0,0,0,.45), 0 5px 20px rgba(0,0,0,.35);
-    --shadow-dark:  0 1px 2px rgba(0,0,0,.10);
+    --ivory: #f7f3ec;                 /* texte clair (cœur des lettres ≈ 250 sur la maquette) */
+    --ink:   #151311;                 /* texte sombre, quasi noir comme sur la maquette        */
+    /* Mesuré sur la maquette : aucune ombre sombre autour des lettres (à 2–3 px on retrouve le fond),
+       mais un bord lumineux doux de 1–2 px → léger glow clair. Le texte sombre a un bord fondu. */
+    --shadow-light: 0 0 1.5px rgba(255,248,236,.55), 0 0 4px rgba(255,248,236,.18);
+    --shadow-dark:  0 0 1.2px rgba(0,0,0,.45);
   }
   * { box-sizing: border-box; margin: 0; }
   html, body { height: 100%; background: #0d0c0b; overflow: hidden; }
@@ -85,6 +86,7 @@
     font: 500 12.4px/25px var(--sans);
     letter-spacing: .37em;
     text-transform: uppercase;
+    opacity: .8;                       /* maquette : tagline à ~80 % du blanc du logo */
     text-shadow: var(--shadow-light);
   }
 
@@ -105,11 +107,12 @@
   }
 
   /* ---------- Indicateur de scroll ---------- */
-  .scroll-line { left: 83px; top: 515px; width: 1.5px; height: 133px; background: var(--ivory); }
+  .scroll-line { left: 83px; top: 515px; width: 1.5px; height: 133px; background: var(--ivory); opacity: .75; }
   .scroll-icon { left: 68px; top: 671px; width: 36px; height: 34px; }
   .scroll-label {
     left: 71px; top: 729px;
     font: 500 12px/1 var(--sans); letter-spacing: .33em; text-transform: uppercase;
+    opacity: .72;                      /* maquette : SCROLL à ~65-70 % */
     text-shadow: var(--shadow-light);
   }
 
@@ -119,7 +122,7 @@
     writing-mode: vertical-rl;
     font: 700 38px/60px var(--jp);
     letter-spacing: .02em;
-    color: var(--ink);
+    color: #050505;                   /* maquette : noir pur */
     text-shadow: var(--shadow-dark);
     height: 390px;
   }
@@ -129,7 +132,7 @@
   .creer {
     left: 1712px; top: 623px;
     font: 700 13.8px/25px var(--serif); letter-spacing: .27em; text-transform: uppercase;
-    color: var(--ink); text-shadow: var(--shadow-dark);
+    color: #2a2622; text-shadow: var(--shadow-dark);   /* maquette : un peu moins noir que la nav */
   }
 
   /* ---------- Bas gauche ---------- */
