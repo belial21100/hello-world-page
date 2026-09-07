@@ -81,6 +81,15 @@
     letter-spacing: .42em;
     text-shadow: var(--shadow-light);
   }
+  /* 月夜 (tsukiyo) à droite du logo — maquette 2 : écart ≈ 41 px, hauteur ≈ 85 % des capitales, même ivoire */
+  .logo-jp {
+    left: 493px; top: 70px;
+    font: 500 40px/1 var(--jp);
+    letter-spacing: .08em;
+    opacity: .92;
+    /* 夜 chevauche le bord du ciel clair : halo sombre discret en plus du glow, pour rester lisible */
+    text-shadow: var(--shadow-light), 0 1px 4px rgba(0,0,0,.55);
+  }
   .tagline {
     left: 86px; top: 147px;
     font: 500 12.4px/25px var(--sans);
@@ -170,6 +179,7 @@
   <!-- Calque ancré au bord gauche -->
   <div class="stage left">
     <div class="logo">TSUKIYO</div>
+    <div class="logo-jp" lang="ja">月夜</div>
     <div class="tagline">Studio<br>Digital craft<br>For a deeper tomorrow</div>
 
     <div class="scroll-line"></div>
